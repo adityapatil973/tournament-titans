@@ -103,6 +103,11 @@ export default function Register() {
             {tournament.upi_id && (
               <p className="text-muted-foreground">UPI ID: <span className="text-primary font-mono">{tournament.upi_id}</span></p>
             )}
+            {tournament.qr_code_url && (
+              <div className="mt-4">
+                <img src={tournament.qr_code_url} alt="UPI QR Code" className="mx-auto max-w-[200px] rounded-lg border border-border" />
+              </div>
+            )}
             <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <QrCode className="w-4 h-4" />
               <span>Pay via UPI & upload screenshot below</span>
