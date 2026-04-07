@@ -387,6 +387,18 @@ export default function Admin() {
                 </div>
               </div>
 
+              {/* Status (only when editing) */}
+              {editingTournamentId && (
+                <div>
+                  <label className="text-xs font-heading uppercase text-muted-foreground">Status</label>
+                  <select value={tournamentForm.status} onChange={(e) => setTournamentForm({ ...tournamentForm, status: e.target.value })} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm mt-1">
+                    <option value="upcoming">Upcoming</option>
+                    <option value="live">Live</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-heading uppercase text-muted-foreground">Description</label>
                 <Textarea value={tournamentForm.description} onChange={(e) => setTournamentForm({ ...tournamentForm, description: e.target.value })} className="bg-muted border-border mt-1" />
@@ -395,8 +407,30 @@ export default function Admin() {
                 <label className="text-xs font-heading uppercase text-muted-foreground">Rules</label>
                 <Textarea value={tournamentForm.rules} onChange={(e) => setTournamentForm({ ...tournamentForm, rules: e.target.value })} rows={5} className="bg-muted border-border mt-1" />
               </div>
-              <Button type="submit" className="btn-neon rounded-md text-primary-foreground font-heading uppercase tracking-wider">Create Tournament</Button>
+              <Button type="submit" className="btn-neon rounded-md text-primary-foreground font-heading uppercase tracking-wider gap-2">
+                {editingTournamentId ? <><Save className="w-4 h-4" /> Update Tournament</> : <><Plus className="w-4 h-4" /> Create Tournament</>}
+              </Button>
             </form>
+
+            {/* Existing Tournaments List */}
+            <h3 className="font-heading text-lg font-semibold uppercase mb-3 mt-8">Existing Tournaments</h3>
+            <div className="space-y-3">
+              {tournaments.map((t) => (
+                <div key={t.id} className="card-gaming p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="font-heading font-semibold">{t.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Fee: ₹{t.entry_fee} · Prize: ₹{t.prize_pool} · Max: {t.max_players}
+                    </div>
+                  </div>
+                  <Badge>{t.status}</Badge>
+                  <Button size="sm" variant="outline" onClick={() => startEditTournament(t)} className="gap-1">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </Button>
+                </div>
+              ))}
+              {tournaments.length === 0 && <p className="text-muted-foreground text-center py-4">No tournaments yet</p>}
+            </div>
           </TabsContent>
 
           {/* MATCHES */}
