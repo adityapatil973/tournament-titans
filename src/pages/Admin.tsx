@@ -63,7 +63,7 @@ export default function Admin() {
     else { toast.success(`Payment ${status}`); fetchAll(); }
   };
 
-  const createTournament = async (e: React.FormEvent) => {
+  const saveTournament = async (e: React.FormEvent) => {
     e.preventDefault();
     let qrCodeUrl: string | null = null;
 
@@ -80,17 +80,64 @@ export default function Admin() {
       qrCodeUrl = urlData.publicUrl;
     }
 
-    const { error } = await supabase.from("tournaments").insert({
-      ...tournamentForm,
-      start_date: tournamentForm.start_date || null,
+    const payload: any = {
+      name: tournamentForm.name,
+      description: tournamentForm.description || null,
+      entry_fee: tournamentForm.entry_fee,
+      prize_pool: tournamentForm.prize_pool,
+      max_players: tournamentForm.max_players,
+      rules: tournamentForm.rules || null,
       youtube_live_url: tournamentForm.youtube_live_url || null,
       whatsapp_link: tournamentForm.whatsapp_link || null,
       telegram_link: tournamentForm.telegram_link || null,
       upi_id: tournamentForm.upi_id || null,
-      qr_code_url: qrCodeUrl,
+      start_date: tournamentForm.start_date || null,
+      status: tournamentForm.status as any,
+    };
+    if (qrCodeUrl) payload.qr_code_url = qrCodeUrl;
+
+    if (editingTournamentId) {
+      const { error } = await supabase.from("tournaments").update(payload).eq("id", editingTournamentId);
+      if (error) toast.error(error.message);
+      else { toast.success("Tournament updated!"); setEditingTournamentId(null); setTournamentForm(emptyTournamentForm); setQrCodeFile(null); fetchAll(); }
+    } else {
+      if (qrCodeUrl) payload.qr_code_url = qrCodeUrl;
+      else payload.qr_code_url = null;
+      const { error } = await supabase.from("tournaments").insert(payload);
+      if (error) toast.error(error.message);
+      else { toast.success("Tournament created!"); setTournamentForm(emptyTournamentForm); setQrCodeFile(null); fetchAll(); }
+    }
+  };
+
+  const startEditTournament = (t: any) => {
+    setEditingTournamentId(t.id);
+    setTournamentForm({
+      name: t.name || "",
+      description: t.description || "",
+      entry_fee: t.entry_fee || 0,
+      prize_pool: t.prize_pool || 0,
+      max_players: t.max_players || 100,
+      rules: t.rules || "",
+      youtube_live_url: t.youtube_live_url || "",
+      whatsapp_link: t.whatsapp_link || "",
+      telegram_link: t.telegram_link || "",
+      upi_id: t.upi_id || "",
+      start_date: t.start_date ? new Date(t.start_date).toISOString().slice(0, 16) : "",
+      status: t.status || "upcoming",
     });
+    setActiveTab("tournament");
+  };
+
+  const cancelEdit = () => {
+    setEditingTournamentId(null);
+    setTournamentForm(emptyTournamentForm);
+    setQrCodeFile(null);
+  };
+
+  const updateMatchStatus = async (matchId: string, status: string) => {
+    const { error } = await supabase.from("matches").update({ status: status as any }).eq("id", matchId);
     if (error) toast.error(error.message);
-    else { toast.success("Tournament created!"); setQrCodeFile(null); fetchAll(); }
+    else { toast.success(`Match marked as ${status}`); fetchAll(); }
   };
 
   const createMatch = async (e: React.FormEvent) => {
