@@ -327,8 +327,15 @@ export default function Admin() {
 
           {/* TOURNAMENT */}
           <TabsContent value="tournament">
-            <h2 className="font-heading text-xl font-semibold uppercase mb-4">Create Tournament</h2>
-            <form onSubmit={createTournament} className="card-gaming p-6 space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-heading text-xl font-semibold uppercase">
+                {editingTournamentId ? "Edit Tournament" : "Create Tournament"}
+              </h2>
+              {editingTournamentId && (
+                <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel Edit</Button>
+              )}
+            </div>
+            <form onSubmit={saveTournament} className="card-gaming p-6 space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-heading uppercase text-muted-foreground">Name</label>
