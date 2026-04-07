@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download } from "lucide-react";
+import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image } from "lucide-react";
 
 export default function Admin() {
   const { user, isAdmin } = useAuth();
@@ -17,25 +17,23 @@ export default function Admin() {
   const [matches, setMatches] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("players");
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
-  // Tournament form
   const [tournamentForm, setTournamentForm] = useState({
     name: "", description: "", entry_fee: 0, prize_pool: 0, max_players: 100,
     rules: "", youtube_live_url: "", whatsapp_link: "", telegram_link: "", upi_id: "",
     start_date: "",
   });
+  const [qrCodeFile, setQrCodeFile] = useState<File | null>(null);
 
-  // Match form
   const [matchForm, setMatchForm] = useState({
     tournament_id: "", match_number: 1, room_id: "", room_password: "",
     scheduled_at: "", reveal_time: "",
   });
 
-  // Score form
   const [scoreForm, setScoreForm] = useState({ match_id: "", player_id: "", kills: 0, rank_points: 0 });
-
-  // Announcement form
   const [annForm, setAnnForm] = useState({ title: "", message: "", tournament_id: "" });
+  const [csvUploading, setCsvUploading] = useState(false);
 
   useEffect(() => {
     if (!user || !isAdmin) { navigate("/"); return; }
@@ -65,6 +63,21 @@ export default function Admin() {
 
   const createTournament = async (e: React.FormEvent) => {
     e.preventDefault();
+    let qrCodeUrl: string | null = null;
+
+    if (qrCodeFile) {
+      const ext = qrCodeFile.name.split(".").pop();
+      const path = `qr-codes/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("payment-screenshots")
+        .upload(path, qrCodeFile);
+      if (uploadError) { toast.error("QR upload failed: " + uploadError.message); return; }
+      const { data: urlData } = supabase.storage
+        .from("payment-screenshots")
+        .getPublicUrl(path);
+      qrCodeUrl = urlData.publicUrl;
+    }
+
     const { error } = await supabase.from("tournaments").insert({
       ...tournamentForm,
       start_date: tournamentForm.start_date || null,
@@ -72,9 +85,10 @@ export default function Admin() {
       whatsapp_link: tournamentForm.whatsapp_link || null,
       telegram_link: tournamentForm.telegram_link || null,
       upi_id: tournamentForm.upi_id || null,
+      qr_code_url: qrCodeUrl,
     });
     if (error) toast.error(error.message);
-    else { toast.success("Tournament created!"); fetchAll(); }
+    else { toast.success("Tournament created!"); setQrCodeFile(null); fetchAll(); }
   };
 
   const createMatch = async (e: React.FormEvent) => {
@@ -99,12 +113,89 @@ export default function Admin() {
     else { toast.success("Score added!"); setScoreForm({ match_id: "", player_id: "", kills: 0, rank_points: 0 }); }
   };
 
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvUploading(true);
+
+    try {
+      const text = await file.text();
+      const lines = text.trim().split("\n");
+      const header = lines[0].toLowerCase();
+
+      // Expected CSV: player_id_code, match_number (or match_id), kills, rank_points
+      // Or: player_name, kills, rank_points (with match selected)
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(",").map(c => c.trim());
+        return cols;
+      });
+
+      if (rows.length === 0) { toast.error("CSV is empty"); return; }
+
+      // Detect format: if header has "match" then match is in CSV, else we need a selected match
+      const hasMatch = header.includes("match");
+      const headers = header.split(",").map(h => h.trim());
+      
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of rows) {
+        try {
+          const rowData: Record<string, string> = {};
+          headers.forEach((h, i) => { rowData[h] = row[i] || ""; });
+
+          // Find player by player_id_code or player name
+          const playerIdentifier = rowData["player_id_code"] || rowData["player_id"] || rowData["player_name"] || rowData["player"];
+          const kills = parseInt(rowData["kills"] || "0");
+          const rankPoints = parseInt(rowData["rank_points"] || rowData["rank"] || "0");
+
+          // Find player
+          let playerId = "";
+          if (rowData["player_id_code"] || rowData["player_id"]) {
+            const code = rowData["player_id_code"] || rowData["player_id"];
+            const { data: found } = await supabase.from("players").select("id").eq("player_id_code", code).maybeSingle();
+            if (found) playerId = found.id;
+          } else if (playerIdentifier) {
+            const { data: found } = await supabase.from("players").select("id").eq("player_name", playerIdentifier).maybeSingle();
+            if (found) playerId = found.id;
+          }
+
+          // Find match
+          let matchId = "";
+          if (rowData["match_id"]) {
+            matchId = rowData["match_id"];
+          } else if (rowData["match_number"] || rowData["match"]) {
+            const num = parseInt(rowData["match_number"] || rowData["match"]);
+            const { data: found } = await supabase.from("matches").select("id").eq("match_number", num).maybeSingle();
+            if (found) matchId = found.id;
+          } else if (scoreForm.match_id) {
+            matchId = scoreForm.match_id;
+          }
+
+          if (!playerId || !matchId) { errorCount++; continue; }
+
+          const total = kills + rankPoints;
+          const { error } = await supabase.from("scores").insert({
+            match_id: matchId, player_id: playerId, kills, rank_points: rankPoints, total_points: total,
+          });
+          if (error) errorCount++;
+          else successCount++;
+        } catch { errorCount++; }
+      }
+
+      toast.success(`CSV imported: ${successCount} scores added, ${errorCount} errors`);
+    } catch (err: any) {
+      toast.error("CSV parse error: " + err.message);
+    } finally {
+      setCsvUploading(false);
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
   const sendAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from("announcements").insert({
-      title: annForm.title,
-      message: annForm.message,
-      tournament_id: annForm.tournament_id || null,
+      title: annForm.title, message: annForm.message, tournament_id: annForm.tournament_id || null,
     });
     if (error) toast.error(error.message);
     else { toast.success("Announcement sent!"); setAnnForm({ ...annForm, title: "", message: "" }); }
@@ -112,13 +203,18 @@ export default function Admin() {
 
   const downloadResults = () => {
     const csv = ["Player Name,FF UID,Kills,Rank Points,Total Points"];
-    // This would need scores joined with players - simplified version
     const blob = new Blob([csv.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "results.csv";
-    a.click();
+    a.href = url; a.download = "results.csv"; a.click();
+  };
+
+  const downloadScoreTemplate = () => {
+    const csv = "player_id_code,match_number,kills,rank_points\nFF-ABC123,1,5,12\nFF-DEF456,1,3,8";
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "score_template.csv"; a.click();
   };
 
   const statusColor: Record<string, string> = {
@@ -222,6 +318,19 @@ export default function Admin() {
                   <Input value={tournamentForm.telegram_link} onChange={(e) => setTournamentForm({ ...tournamentForm, telegram_link: e.target.value })} className="bg-muted border-border mt-1" />
                 </div>
               </div>
+
+              {/* QR Code Upload */}
+              <div>
+                <label className="text-xs font-heading uppercase text-muted-foreground">UPI QR Code Image</label>
+                <div className="mt-1">
+                  <label className="flex items-center gap-3 cursor-pointer card-gaming p-4 hover:border-primary/50 transition-colors">
+                    <Image className="w-5 h-5 text-primary" />
+                    <span className="text-sm text-muted-foreground">{qrCodeFile ? qrCodeFile.name : "Upload QR Code image..."}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setQrCodeFile(e.target.files?.[0] || null)} />
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-heading uppercase text-muted-foreground">Description</label>
                 <Textarea value={tournamentForm.description} onChange={(e) => setTournamentForm({ ...tournamentForm, description: e.target.value })} className="bg-muted border-border mt-1" />
@@ -283,7 +392,30 @@ export default function Admin() {
 
           {/* SCORES */}
           <TabsContent value="scores">
-            <h2 className="font-heading text-xl font-semibold uppercase mb-4">Add Score</h2>
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
+              <h2 className="font-heading text-xl font-semibold uppercase">Manage Scores</h2>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={downloadScoreTemplate} className="gap-2">
+                  <Download className="w-4 h-4" /> Template CSV
+                </Button>
+                <label className="inline-flex">
+                  <Button size="sm" variant="outline" className="gap-2" disabled={csvUploading} asChild>
+                    <span className="cursor-pointer">
+                      <Upload className="w-4 h-4" /> {csvUploading ? "Importing..." : "Upload CSV"}
+                      <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+                    </span>
+                  </Button>
+                </label>
+              </div>
+            </div>
+
+            <div className="card-gaming p-4 mb-6 text-sm text-muted-foreground">
+              <p className="font-heading uppercase text-xs text-primary mb-2">CSV Format</p>
+              <code className="text-xs">player_id_code, match_number, kills, rank_points</code>
+              <p className="mt-1 text-xs">You can also select a match below first, then use a CSV with just: player_id_code, kills, rank_points</p>
+            </div>
+
+            <h3 className="font-heading text-lg font-semibold uppercase mb-3">Add Single Score</h3>
             <form onSubmit={addScore} className="card-gaming p-6 space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>

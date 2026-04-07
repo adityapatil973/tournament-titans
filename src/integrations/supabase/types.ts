@@ -236,6 +236,7 @@ export type Database = {
           max_players: number
           name: string
           prize_pool: number
+          qr_code_url: string | null
           rules: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["tournament_status"]
@@ -253,6 +254,7 @@ export type Database = {
           max_players?: number
           name: string
           prize_pool?: number
+          qr_code_url?: string | null
           rules?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["tournament_status"]
@@ -270,6 +272,7 @@ export type Database = {
           max_players?: number
           name?: string
           prize_pool?: number
+          qr_code_url?: string | null
           rules?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["tournament_status"]
