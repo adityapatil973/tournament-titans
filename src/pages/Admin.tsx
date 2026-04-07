@@ -18,12 +18,14 @@ export default function Admin() {
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("players");
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
 
-  const [tournamentForm, setTournamentForm] = useState({
+  const emptyTournamentForm = {
     name: "", description: "", entry_fee: 0, prize_pool: 0, max_players: 100,
     rules: "", youtube_live_url: "", whatsapp_link: "", telegram_link: "", upi_id: "",
-    start_date: "",
-  });
+    start_date: "", status: "upcoming" as string,
+  };
+  const [tournamentForm, setTournamentForm] = useState(emptyTournamentForm);
   const [qrCodeFile, setQrCodeFile] = useState<File | null>(null);
 
   const [matchForm, setMatchForm] = useState({
