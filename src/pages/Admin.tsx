@@ -471,10 +471,20 @@ export default function Admin() {
             <h3 className="font-heading text-lg font-semibold uppercase mb-3">Existing Matches</h3>
             <div className="space-y-2">
               {matches.map((m) => (
-                <div key={m.id} className="card-gaming p-4 flex justify-between items-center">
+                <div key={m.id} className="card-gaming p-4 flex flex-wrap justify-between items-center gap-3">
                   <span className="font-heading">Match #{m.match_number}</span>
                   <span className="text-xs text-muted-foreground">{m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : "TBD"}</span>
-                  <Badge>{m.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={m.status}
+                      onChange={(e) => updateMatchStatus(m.id, e.target.value)}
+                      className="bg-muted border border-border rounded-md px-2 py-1 text-xs font-heading uppercase"
+                    >
+                      <option value="scheduled">Scheduled</option>
+                      <option value="live">Live</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>
