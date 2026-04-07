@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image } from "lucide-react";
+import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image, Pencil, Save } from "lucide-react";
 
 export default function Admin() {
   const { user, isAdmin } = useAuth();
@@ -18,12 +18,14 @@ export default function Admin() {
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("players");
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
 
-  const [tournamentForm, setTournamentForm] = useState({
+  const emptyTournamentForm = {
     name: "", description: "", entry_fee: 0, prize_pool: 0, max_players: 100,
     rules: "", youtube_live_url: "", whatsapp_link: "", telegram_link: "", upi_id: "",
-    start_date: "",
-  });
+    start_date: "", status: "upcoming" as string,
+  };
+  const [tournamentForm, setTournamentForm] = useState(emptyTournamentForm);
   const [qrCodeFile, setQrCodeFile] = useState<File | null>(null);
 
   const [matchForm, setMatchForm] = useState({
@@ -61,7 +63,7 @@ export default function Admin() {
     else { toast.success(`Payment ${status}`); fetchAll(); }
   };
 
-  const createTournament = async (e: React.FormEvent) => {
+  const saveTournament = async (e: React.FormEvent) => {
     e.preventDefault();
     let qrCodeUrl: string | null = null;
 
@@ -78,17 +80,64 @@ export default function Admin() {
       qrCodeUrl = urlData.publicUrl;
     }
 
-    const { error } = await supabase.from("tournaments").insert({
-      ...tournamentForm,
-      start_date: tournamentForm.start_date || null,
+    const payload: any = {
+      name: tournamentForm.name,
+      description: tournamentForm.description || null,
+      entry_fee: tournamentForm.entry_fee,
+      prize_pool: tournamentForm.prize_pool,
+      max_players: tournamentForm.max_players,
+      rules: tournamentForm.rules || null,
       youtube_live_url: tournamentForm.youtube_live_url || null,
       whatsapp_link: tournamentForm.whatsapp_link || null,
       telegram_link: tournamentForm.telegram_link || null,
       upi_id: tournamentForm.upi_id || null,
-      qr_code_url: qrCodeUrl,
+      start_date: tournamentForm.start_date || null,
+      status: tournamentForm.status as any,
+    };
+    if (qrCodeUrl) payload.qr_code_url = qrCodeUrl;
+
+    if (editingTournamentId) {
+      const { error } = await supabase.from("tournaments").update(payload).eq("id", editingTournamentId);
+      if (error) toast.error(error.message);
+      else { toast.success("Tournament updated!"); setEditingTournamentId(null); setTournamentForm(emptyTournamentForm); setQrCodeFile(null); fetchAll(); }
+    } else {
+      if (qrCodeUrl) payload.qr_code_url = qrCodeUrl;
+      else payload.qr_code_url = null;
+      const { error } = await supabase.from("tournaments").insert(payload);
+      if (error) toast.error(error.message);
+      else { toast.success("Tournament created!"); setTournamentForm(emptyTournamentForm); setQrCodeFile(null); fetchAll(); }
+    }
+  };
+
+  const startEditTournament = (t: any) => {
+    setEditingTournamentId(t.id);
+    setTournamentForm({
+      name: t.name || "",
+      description: t.description || "",
+      entry_fee: t.entry_fee || 0,
+      prize_pool: t.prize_pool || 0,
+      max_players: t.max_players || 100,
+      rules: t.rules || "",
+      youtube_live_url: t.youtube_live_url || "",
+      whatsapp_link: t.whatsapp_link || "",
+      telegram_link: t.telegram_link || "",
+      upi_id: t.upi_id || "",
+      start_date: t.start_date ? new Date(t.start_date).toISOString().slice(0, 16) : "",
+      status: t.status || "upcoming",
     });
+    setActiveTab("tournament");
+  };
+
+  const cancelEdit = () => {
+    setEditingTournamentId(null);
+    setTournamentForm(emptyTournamentForm);
+    setQrCodeFile(null);
+  };
+
+  const updateMatchStatus = async (matchId: string, status: string) => {
+    const { error } = await supabase.from("matches").update({ status: status as any }).eq("id", matchId);
     if (error) toast.error(error.message);
-    else { toast.success("Tournament created!"); setQrCodeFile(null); fetchAll(); }
+    else { toast.success(`Match marked as ${status}`); fetchAll(); }
   };
 
   const createMatch = async (e: React.FormEvent) => {
@@ -278,8 +327,15 @@ export default function Admin() {
 
           {/* TOURNAMENT */}
           <TabsContent value="tournament">
-            <h2 className="font-heading text-xl font-semibold uppercase mb-4">Create Tournament</h2>
-            <form onSubmit={createTournament} className="card-gaming p-6 space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-heading text-xl font-semibold uppercase">
+                {editingTournamentId ? "Edit Tournament" : "Create Tournament"}
+              </h2>
+              {editingTournamentId && (
+                <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel Edit</Button>
+              )}
+            </div>
+            <form onSubmit={saveTournament} className="card-gaming p-6 space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-heading uppercase text-muted-foreground">Name</label>
@@ -331,6 +387,18 @@ export default function Admin() {
                 </div>
               </div>
 
+              {/* Status (only when editing) */}
+              {editingTournamentId && (
+                <div>
+                  <label className="text-xs font-heading uppercase text-muted-foreground">Status</label>
+                  <select value={tournamentForm.status} onChange={(e) => setTournamentForm({ ...tournamentForm, status: e.target.value })} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm mt-1">
+                    <option value="upcoming">Upcoming</option>
+                    <option value="live">Live</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-heading uppercase text-muted-foreground">Description</label>
                 <Textarea value={tournamentForm.description} onChange={(e) => setTournamentForm({ ...tournamentForm, description: e.target.value })} className="bg-muted border-border mt-1" />
@@ -339,8 +407,30 @@ export default function Admin() {
                 <label className="text-xs font-heading uppercase text-muted-foreground">Rules</label>
                 <Textarea value={tournamentForm.rules} onChange={(e) => setTournamentForm({ ...tournamentForm, rules: e.target.value })} rows={5} className="bg-muted border-border mt-1" />
               </div>
-              <Button type="submit" className="btn-neon rounded-md text-primary-foreground font-heading uppercase tracking-wider">Create Tournament</Button>
+              <Button type="submit" className="btn-neon rounded-md text-primary-foreground font-heading uppercase tracking-wider gap-2">
+                {editingTournamentId ? <><Save className="w-4 h-4" /> Update Tournament</> : <><Plus className="w-4 h-4" /> Create Tournament</>}
+              </Button>
             </form>
+
+            {/* Existing Tournaments List */}
+            <h3 className="font-heading text-lg font-semibold uppercase mb-3 mt-8">Existing Tournaments</h3>
+            <div className="space-y-3">
+              {tournaments.map((t) => (
+                <div key={t.id} className="card-gaming p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="font-heading font-semibold">{t.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Fee: ₹{t.entry_fee} · Prize: ₹{t.prize_pool} · Max: {t.max_players}
+                    </div>
+                  </div>
+                  <Badge>{t.status}</Badge>
+                  <Button size="sm" variant="outline" onClick={() => startEditTournament(t)} className="gap-1">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </Button>
+                </div>
+              ))}
+              {tournaments.length === 0 && <p className="text-muted-foreground text-center py-4">No tournaments yet</p>}
+            </div>
           </TabsContent>
 
           {/* MATCHES */}
@@ -381,10 +471,20 @@ export default function Admin() {
             <h3 className="font-heading text-lg font-semibold uppercase mb-3">Existing Matches</h3>
             <div className="space-y-2">
               {matches.map((m) => (
-                <div key={m.id} className="card-gaming p-4 flex justify-between items-center">
+                <div key={m.id} className="card-gaming p-4 flex flex-wrap justify-between items-center gap-3">
                   <span className="font-heading">Match #{m.match_number}</span>
                   <span className="text-xs text-muted-foreground">{m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : "TBD"}</span>
-                  <Badge>{m.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={m.status}
+                      onChange={(e) => updateMatchStatus(m.id, e.target.value)}
+                      className="bg-muted border border-border rounded-md px-2 py-1 text-xs font-heading uppercase"
+                    >
+                      <option value="scheduled">Scheduled</option>
+                      <option value="live">Live</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>
