@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image, Pencil, Save } from "lucide-react";
+import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image, Pencil, Save, Trash2 } from "lucide-react";
 
 export default function Admin() {
   const { user, isAdmin } = useAuth();
