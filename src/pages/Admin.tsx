@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image, Pencil, Save } from "lucide-react";
+import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image, Pencil, Save, Trash2 } from "lucide-react";
 
 export default function Admin() {
   const { user, isAdmin } = useAuth();
@@ -138,6 +138,20 @@ export default function Admin() {
     const { error } = await supabase.from("matches").update({ status: status as any }).eq("id", matchId);
     if (error) toast.error(error.message);
     else { toast.success(`Match marked as ${status}`); fetchAll(); }
+  };
+
+  const deleteTournament = async (id: string, name: string) => {
+    if (!confirm(`Delete tournament "${name}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("tournaments").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Tournament deleted"); if (editingTournamentId === id) cancelEdit(); fetchAll(); }
+  };
+
+  const deleteMatch = async (id: string, num: number) => {
+    if (!confirm(`Delete Match #${num}? This cannot be undone.`)) return;
+    const { error } = await supabase.from("matches").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Match deleted"); fetchAll(); }
   };
 
   const createMatch = async (e: React.FormEvent) => {
@@ -427,6 +441,9 @@ export default function Admin() {
                   <Button size="sm" variant="outline" onClick={() => startEditTournament(t)} className="gap-1">
                     <Pencil className="w-3 h-3" /> Edit
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => deleteTournament(t.id, t.name)} className="gap-1 text-neon-red border-neon-red/30 hover:bg-neon-red/10">
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </Button>
                 </div>
               ))}
               {tournaments.length === 0 && <p className="text-muted-foreground text-center py-4">No tournaments yet</p>}
@@ -484,6 +501,9 @@ export default function Admin() {
                       <option value="live">Live</option>
                       <option value="completed">Completed</option>
                     </select>
+                    <Button size="sm" variant="outline" onClick={() => deleteMatch(m.id, m.match_number)} className="gap-1 text-neon-red border-neon-red/30 hover:bg-neon-red/10">
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
               ))}
