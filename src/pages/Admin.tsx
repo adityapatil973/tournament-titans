@@ -501,6 +501,9 @@ export default function Admin() {
                       <option value="live">Live</option>
                       <option value="completed">Completed</option>
                     </select>
+                    <Button size="sm" variant="outline" onClick={() => deleteMatch(m.id, m.match_number)} className="gap-1 text-neon-red border-neon-red/30 hover:bg-neon-red/10">
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
               ))}

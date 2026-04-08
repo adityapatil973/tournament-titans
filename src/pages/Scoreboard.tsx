@@ -15,12 +15,6 @@ export default function Scoreboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLeaderboard();
-    const interval = setInterval(fetchLeaderboard, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchLeaderboard = async () => {
     const { data: scores } = await supabase
       .from("scores")
@@ -48,13 +42,32 @@ export default function Scoreboard() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    fetchLeaderboard();
+
+    const channel = supabase
+      .channel("scoreboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "scores" },
+        () => {
+          fetchLeaderboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const medalColors = ["text-neon-yellow", "text-muted-foreground", "text-neon-red"];
 
   return (
     <div className="min-h-screen pt-20 pb-10 px-4">
       <div className="container mx-auto max-w-4xl">
         <h1 className="font-display text-3xl font-bold text-center mb-2 text-glow-blue uppercase">Live Scoreboard</h1>
-        <p className="text-center text-muted-foreground mb-8 font-heading">Auto-refreshes every 30 seconds</p>
+        <p className="text-center text-muted-foreground mb-8 font-heading">Updates in real-time</p>
 
         {loading ? (
           <div className="text-center text-muted-foreground py-20">Loading...</div>
@@ -65,7 +78,6 @@ export default function Scoreboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Header */}
             <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-heading uppercase tracking-wider text-muted-foreground">
               <div className="col-span-1">#</div>
               <div className="col-span-5">Player</div>
