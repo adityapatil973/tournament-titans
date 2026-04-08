@@ -31,6 +31,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/scoreboard" element={<Scoreboard />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/stats" element={<PlayerStats />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

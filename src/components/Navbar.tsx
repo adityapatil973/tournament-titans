@@ -17,7 +17,7 @@ export default function Navbar() {
   const links = [
     { to: "/", label: "Home" },
     { to: "/scoreboard", label: "Scoreboard" },
-    ...(user ? [{ to: "/dashboard", label: "Dashboard" }] : []),
+    ...(user ? [{ to: "/stats", label: "My Stats" }, { to: "/dashboard", label: "Dashboard" }] : []),
     ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
   ];
 
