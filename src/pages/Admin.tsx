@@ -441,6 +441,9 @@ export default function Admin() {
                   <Button size="sm" variant="outline" onClick={() => startEditTournament(t)} className="gap-1">
                     <Pencil className="w-3 h-3" /> Edit
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => deleteTournament(t.id, t.name)} className="gap-1 text-neon-red border-neon-red/30 hover:bg-neon-red/10">
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </Button>
                 </div>
               ))}
               {tournaments.length === 0 && <p className="text-muted-foreground text-center py-4">No tournaments yet</p>}
