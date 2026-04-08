@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Scoreboard from "./pages/Scoreboard";
 import Admin from "./pages/Admin";
+import PlayerStats from "./pages/PlayerStats";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/scoreboard" element={<Scoreboard />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/stats" element={<PlayerStats />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
