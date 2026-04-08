@@ -140,6 +140,20 @@ export default function Admin() {
     else { toast.success(`Match marked as ${status}`); fetchAll(); }
   };
 
+  const deleteTournament = async (id: string, name: string) => {
+    if (!confirm(`Delete tournament "${name}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("tournaments").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Tournament deleted"); if (editingTournamentId === id) cancelEdit(); fetchAll(); }
+  };
+
+  const deleteMatch = async (id: string, num: number) => {
+    if (!confirm(`Delete Match #${num}? This cannot be undone.`)) return;
+    const { error } = await supabase.from("matches").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Match deleted"); fetchAll(); }
+  };
+
   const createMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from("matches").insert({
