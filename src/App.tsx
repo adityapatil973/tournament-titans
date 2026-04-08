@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Scoreboard from "./pages/Scoreboard";
 import Admin from "./pages/Admin";
+import PlayerStats from "./pages/PlayerStats";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
