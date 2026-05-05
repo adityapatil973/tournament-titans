@@ -76,7 +76,7 @@ export default function Register() {
         free_fire_uid: form.freeFireUid,
         phone: form.phone,
         email: form.email || null,
-        payment_screenshot_url: screenshotUrl || null,
+        payment_screenshot_url: screenshotPath || null,
         player_id_code: generatePlayerId(),
         anti_cheat_accepted: form.antiCheat,
       });
