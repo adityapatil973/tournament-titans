@@ -6,6 +6,23 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Trophy, Bell, Key, Shield } from "lucide-react";
 
+function RoomCredentials({ matchId }: { matchId: string }) {
+  const [creds, setCreds] = useState<{ room_id: string | null; room_password: string | null } | null>(null);
+  useEffect(() => {
+    supabase.rpc("get_match_credentials", { _match_id: matchId }).then(({ data }) => {
+      if (data && data[0]) setCreds(data[0]);
+    });
+  }, [matchId]);
+  if (!creds || !creds.room_id) return null;
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <Key className="w-4 h-4 text-neon-yellow" />
+      <span>Room: <code className="text-primary">{creds.room_id}</code></span>
+      <span>Pass: <code className="text-primary">{creds.room_password}</code></span>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
