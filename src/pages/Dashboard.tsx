@@ -170,14 +170,10 @@ export default function Dashboard() {
                       <Badge className={m.status === "live" ? "bg-neon-green/20 text-neon-green" : "bg-muted text-muted-foreground"}>
                         {m.status}
                       </Badge>
-                      {isRoomRevealed(m) && m.room_id && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Key className="w-4 h-4 text-neon-yellow" />
-                          <span>Room: <code className="text-primary">{m.room_id}</code></span>
-                          <span>Pass: <code className="text-primary">{m.room_password}</code></span>
-                        </div>
+                      {isRoomRevealed(m) && (
+                        <RoomCredentials matchId={m.id} />
                       )}
-                      {!isRoomRevealed(m) && m.room_id && (
+                      {!isRoomRevealed(m) && (
                         <span className="text-xs text-muted-foreground">Room ID reveals before match</span>
                       )}
                     </div>
