@@ -6,6 +6,23 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Trophy, Bell, Key, Shield } from "lucide-react";
 
+function RoomCredentials({ matchId }: { matchId: string }) {
+  const [creds, setCreds] = useState<{ room_id: string | null; room_password: string | null } | null>(null);
+  useEffect(() => {
+    supabase.rpc("get_match_credentials", { _match_id: matchId }).then(({ data }) => {
+      if (data && data[0]) setCreds(data[0]);
+    });
+  }, [matchId]);
+  if (!creds || !creds.room_id) return null;
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <Key className="w-4 h-4 text-neon-yellow" />
+      <span>Room: <code className="text-primary">{creds.room_id}</code></span>
+      <span>Pass: <code className="text-primary">{creds.room_password}</code></span>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -170,14 +187,10 @@ export default function Dashboard() {
                       <Badge className={m.status === "live" ? "bg-neon-green/20 text-neon-green" : "bg-muted text-muted-foreground"}>
                         {m.status}
                       </Badge>
-                      {isRoomRevealed(m) && m.room_id && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Key className="w-4 h-4 text-neon-yellow" />
-                          <span>Room: <code className="text-primary">{m.room_id}</code></span>
-                          <span>Pass: <code className="text-primary">{m.room_password}</code></span>
-                        </div>
+                      {isRoomRevealed(m) && (
+                        <RoomCredentials matchId={m.id} />
                       )}
-                      {!isRoomRevealed(m) && m.room_id && (
+                      {!isRoomRevealed(m) && (
                         <span className="text-xs text-muted-foreground">Room ID reveals before match</span>
                       )}
                     </div>

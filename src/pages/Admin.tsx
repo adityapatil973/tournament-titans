@@ -68,14 +68,17 @@ export default function Admin() {
     let qrCodeUrl: string | null = null;
 
     if (qrCodeFile) {
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (!allowed.includes(qrCodeFile.type)) { toast.error("QR must be a JPEG/PNG/WEBP/GIF image"); return; }
+      if (qrCodeFile.size > 5 * 1024 * 1024) { toast.error("QR image must be smaller than 5 MB"); return; }
       const ext = qrCodeFile.name.split(".").pop();
       const path = `qr-codes/${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from("payment-screenshots")
-        .upload(path, qrCodeFile);
+        .from("tournament-assets")
+        .upload(path, qrCodeFile, { contentType: qrCodeFile.type, upsert: false });
       if (uploadError) { toast.error("QR upload failed: " + uploadError.message); return; }
       const { data: urlData } = supabase.storage
-        .from("payment-screenshots")
+        .from("tournament-assets")
         .getPublicUrl(path);
       qrCodeUrl = urlData.publicUrl;
     }
@@ -321,9 +324,19 @@ export default function Admin() {
                   </div>
                   <Badge className={`${statusColor[p.payment_status]} border`}>{p.payment_status}</Badge>
                   {p.payment_screenshot_url && (
-                    <a href={p.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const { data, error } = await supabase.storage
+                          .from("payment-screenshots")
+                          .createSignedUrl(p.payment_screenshot_url, 3600);
+                        if (error || !data) { toast.error("Could not load screenshot"); return; }
+                        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
                       View Screenshot
-                    </a>
+                    </button>
                   )}
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => updatePaymentStatus(p.id, "approved")} className="gap-1 text-neon-green border-neon-green/30 hover:bg-neon-green/10">
