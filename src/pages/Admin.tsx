@@ -68,14 +68,17 @@ export default function Admin() {
     let qrCodeUrl: string | null = null;
 
     if (qrCodeFile) {
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (!allowed.includes(qrCodeFile.type)) { toast.error("QR must be a JPEG/PNG/WEBP/GIF image"); return; }
+      if (qrCodeFile.size > 5 * 1024 * 1024) { toast.error("QR image must be smaller than 5 MB"); return; }
       const ext = qrCodeFile.name.split(".").pop();
       const path = `qr-codes/${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from("payment-screenshots")
-        .upload(path, qrCodeFile);
+        .from("tournament-assets")
+        .upload(path, qrCodeFile, { contentType: qrCodeFile.type, upsert: false });
       if (uploadError) { toast.error("QR upload failed: " + uploadError.message); return; }
       const { data: urlData } = supabase.storage
-        .from("payment-screenshots")
+        .from("tournament-assets")
         .getPublicUrl(path);
       qrCodeUrl = urlData.publicUrl;
     }
