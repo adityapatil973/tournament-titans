@@ -51,18 +51,22 @@ export default function Register() {
     setLoading(true);
 
     try {
-      let screenshotUrl = "";
+      let screenshotPath = "";
       if (screenshot) {
+        const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        if (!allowed.includes(screenshot.type)) {
+          throw new Error("Only JPEG, PNG, WEBP or GIF images are allowed");
+        }
+        if (screenshot.size > 5 * 1024 * 1024) {
+          throw new Error("Image must be smaller than 5 MB");
+        }
         const ext = screenshot.name.split(".").pop();
         const path = `${user.id}/${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("payment-screenshots")
-          .upload(path, screenshot);
+          .upload(path, screenshot, { contentType: screenshot.type, upsert: false });
         if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage
-          .from("payment-screenshots")
-          .getPublicUrl(path);
-        screenshotUrl = urlData.publicUrl;
+        screenshotPath = path;
       }
 
       const { error } = await supabase.from("players").insert({
