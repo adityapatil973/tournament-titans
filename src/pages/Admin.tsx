@@ -324,9 +324,19 @@ export default function Admin() {
                   </div>
                   <Badge className={`${statusColor[p.payment_status]} border`}>{p.payment_status}</Badge>
                   {p.payment_screenshot_url && (
-                    <a href={p.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const { data, error } = await supabase.storage
+                          .from("payment-screenshots")
+                          .createSignedUrl(p.payment_screenshot_url, 3600);
+                        if (error || !data) { toast.error("Could not load screenshot"); return; }
+                        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
                       View Screenshot
-                    </a>
+                    </button>
                   )}
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => updatePaymentStatus(p.id, "approved")} className="gap-1 text-neon-green border-neon-green/30 hover:bg-neon-green/10">
