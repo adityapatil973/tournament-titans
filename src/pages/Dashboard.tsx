@@ -34,6 +34,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     fetchData();
+    const channel = supabase
+      .channel("dashboard-player-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "players", filter: `user_id=eq.${user.id}` }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const fetchData = async () => {
