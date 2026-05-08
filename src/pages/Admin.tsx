@@ -38,10 +38,21 @@ export default function Admin() {
   const [scoreForm, setScoreForm] = useState({ match_id: "", player_id: "", kills: 0, rank_points: 0 });
   const [annForm, setAnnForm] = useState({ title: "", message: "", tournament_id: "" });
   const [csvUploading, setCsvUploading] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [playerFilter, setPlayerFilter] = useState<string>("all");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [rejectingPlayer, setRejectingPlayer] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     if (!user || !isAdmin) { navigate("/"); return; }
     fetchAll();
+    const channel = supabase
+      .channel("admin-players")
+      .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user, isAdmin]);
 
   const fetchAll = async () => {
