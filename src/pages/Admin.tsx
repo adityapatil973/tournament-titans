@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image, Pencil, Save, Trash2 } from "lucide-react";
+import { Users, Gamepad2, BarChart3, Megaphone, Plus, Check, X, Download, Upload, Image as ImageIcon, Pencil, Save, Trash2, Search, IndianRupee, UserCheck, Clock } from "lucide-react";
 
 export default function Admin() {
   const { user, isAdmin } = useAuth();
