@@ -18,6 +18,8 @@ export default function Admin() {
   const [players, setPlayers] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [scores, setScores] = useState<any[]>([]);
+  const [editingScore, setEditingScore] = useState<{ id: string; kills: number; rank_points: number } | null>(null);
   const [activeTab, setActiveTab] = useState("players");
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
@@ -49,21 +51,24 @@ export default function Admin() {
     if (!user || !isAdmin) { navigate("/"); return; }
     fetchAll();
     const channel = supabase
-      .channel("admin-players")
+      .channel("admin-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, isAdmin]);
 
   const fetchAll = async () => {
-    const [{ data: p }, { data: m }, { data: t }] = await Promise.all([
+    const [{ data: p }, { data: m }, { data: t }, { data: s }] = await Promise.all([
       supabase.from("players").select("*").order("created_at", { ascending: false }),
       supabase.from("matches").select("*").order("match_number"),
       supabase.from("tournaments").select("*").order("created_at", { ascending: false }),
+      supabase.from("scores").select("*, players(player_name, player_id_code), matches(match_number)").order("created_at", { ascending: false }),
     ]);
     setPlayers(p || []);
     setMatches(m || []);
     setTournaments(t || []);
+    setScores(s || []);
     if (t?.[0]) {
       setMatchForm((f) => ({ ...f, tournament_id: t[0].id }));
       setAnnForm((f) => ({ ...f, tournament_id: t[0].id }));
@@ -204,13 +209,31 @@ export default function Admin() {
 
   const addScore = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!scoreForm.match_id || !scoreForm.player_id) { toast.error("Select match and player"); return; }
     const total = scoreForm.kills + scoreForm.rank_points;
     const { error } = await supabase.from("scores").insert({
       ...scoreForm,
       total_points: total,
     });
     if (error) toast.error(error.message);
-    else { toast.success("Score added!"); setScoreForm({ match_id: "", player_id: "", kills: 0, rank_points: 0 }); }
+    else { toast.success("Score added!"); setScoreForm({ match_id: "", player_id: "", kills: 0, rank_points: 0 }); fetchAll(); }
+  };
+
+  const saveScoreEdit = async () => {
+    if (!editingScore) return;
+    const total = editingScore.kills + editingScore.rank_points;
+    const { error } = await supabase.from("scores").update({
+      kills: editingScore.kills, rank_points: editingScore.rank_points, total_points: total,
+    }).eq("id", editingScore.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Score updated"); setEditingScore(null); fetchAll(); }
+  };
+
+  const deleteScore = async (id: string) => {
+    if (!confirm("Delete this score entry?")) return;
+    const { error } = await supabase.from("scores").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Score deleted"); fetchAll(); }
   };
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
