@@ -17,8 +17,10 @@ export default function Register() {
   const [form, setForm] = useState({
     playerName: "",
     freeFireUid: "",
+    teamName: "",
     phone: "",
     email: "",
+    transactionId: "",
     antiCheat: false,
   });
   const [screenshot, setScreenshot] = useState<File | null>(null);
@@ -48,9 +50,26 @@ export default function Register() {
       toast.error("You must accept the anti-cheat declaration");
       return;
     }
+    if (tournament.entry_fee > 0 && !screenshot) {
+      toast.error("Payment screenshot is required");
+      return;
+    }
+    if (tournament.entry_fee > 0 && !form.transactionId.trim()) {
+      toast.error("Transaction ID is required");
+      return;
+    }
     setLoading(true);
 
     try {
+      // Block duplicate UID for this tournament
+      const { data: existing } = await supabase
+        .from("players")
+        .select("id")
+        .eq("tournament_id", tournament.id)
+        .eq("free_fire_uid", form.freeFireUid)
+        .maybeSingle();
+      if (existing) throw new Error("This Free Fire UID is already registered for this tournament");
+
       let screenshotPath = "";
       if (screenshot) {
         const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -74,8 +93,10 @@ export default function Register() {
         tournament_id: tournament.id,
         player_name: form.playerName,
         free_fire_uid: form.freeFireUid,
+        team_name: form.teamName || null,
         phone: form.phone,
         email: form.email || null,
+        transaction_id: form.transactionId || null,
         payment_screenshot_url: screenshotPath || null,
         player_id_code: generatePlayerId(),
         anti_cheat_accepted: form.antiCheat,
@@ -128,6 +149,10 @@ export default function Register() {
               <Input value={form.freeFireUid} onChange={(e) => setForm({ ...form, freeFireUid: e.target.value })} required className="bg-muted border-border mt-1" />
             </div>
             <div>
+              <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Team Name (Optional)</label>
+              <Input value={form.teamName} onChange={(e) => setForm({ ...form, teamName: e.target.value })} className="bg-muted border-border mt-1" />
+            </div>
+            <div>
               <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Phone Number *</label>
               <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required className="bg-muted border-border mt-1" />
             </div>
@@ -135,16 +160,24 @@ export default function Register() {
               <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Email (Optional)</label>
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="bg-muted border-border mt-1" />
             </div>
-            <div>
-              <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Payment Screenshot</label>
-              <div className="mt-1">
-                <label className="flex items-center gap-3 cursor-pointer card-gaming p-4 hover:border-primary/50 transition-colors">
-                  <Upload className="w-5 h-5 text-primary" />
-                  <span className="text-sm text-muted-foreground">{screenshot ? screenshot.name : "Choose file..."}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-            </div>
+            {tournament.entry_fee > 0 && (
+              <>
+                <div>
+                  <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">UPI Transaction ID *</label>
+                  <Input value={form.transactionId} onChange={(e) => setForm({ ...form, transactionId: e.target.value })} required className="bg-muted border-border mt-1" placeholder="12-digit UPI reference number" />
+                </div>
+                <div>
+                  <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Payment Screenshot *</label>
+                  <div className="mt-1">
+                    <label className="flex items-center gap-3 cursor-pointer card-gaming p-4 hover:border-primary/50 transition-colors">
+                      <Upload className="w-5 h-5 text-primary" />
+                      <span className="text-sm text-muted-foreground">{screenshot ? screenshot.name : "Upload payment proof (JPG/PNG, max 5MB)"}</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
             <div className="flex items-start gap-3">
               <Checkbox
                 checked={form.antiCheat}

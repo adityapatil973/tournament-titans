@@ -34,6 +34,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     fetchData();
+    const channel = supabase
+      .channel("dashboard-player-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "players", filter: `user_id=eq.${user.id}` }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const fetchData = async () => {
@@ -121,6 +126,11 @@ export default function Dashboard() {
                     {registration.payment_status}
                   </Badge>
                 </div>
+                {registration.payment_status === "rejected" && registration.rejection_reason && (
+                  <div className="text-xs text-neon-red border border-neon-red/30 rounded p-2 bg-neon-red/5">
+                    <span className="font-heading uppercase">Rejection reason:</span> {registration.rejection_reason}
+                  </div>
+                )}
               </div>
             </motion.div>
 

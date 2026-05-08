@@ -168,7 +168,10 @@ export type Database = {
           phone: string
           player_id_code: string
           player_name: string
+          rejection_reason: string | null
+          team_name: string | null
           tournament_id: string
+          transaction_id: string | null
           updated_at: string
           user_id: string
         }
@@ -183,7 +186,10 @@ export type Database = {
           phone: string
           player_id_code: string
           player_name: string
+          rejection_reason?: string | null
+          team_name?: string | null
           tournament_id: string
+          transaction_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -198,7 +204,10 @@ export type Database = {
           phone?: string
           player_id_code?: string
           player_name?: string
+          rejection_reason?: string | null
+          team_name?: string | null
           tournament_id?: string
+          transaction_id?: string | null
           updated_at?: string
           user_id?: string
         }
