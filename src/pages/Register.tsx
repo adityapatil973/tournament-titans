@@ -50,9 +50,26 @@ export default function Register() {
       toast.error("You must accept the anti-cheat declaration");
       return;
     }
+    if (tournament.entry_fee > 0 && !screenshot) {
+      toast.error("Payment screenshot is required");
+      return;
+    }
+    if (tournament.entry_fee > 0 && !form.transactionId.trim()) {
+      toast.error("Transaction ID is required");
+      return;
+    }
     setLoading(true);
 
     try {
+      // Block duplicate UID for this tournament
+      const { data: existing } = await supabase
+        .from("players")
+        .select("id")
+        .eq("tournament_id", tournament.id)
+        .eq("free_fire_uid", form.freeFireUid)
+        .maybeSingle();
+      if (existing) throw new Error("This Free Fire UID is already registered for this tournament");
+
       let screenshotPath = "";
       if (screenshot) {
         const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -76,8 +93,10 @@ export default function Register() {
         tournament_id: tournament.id,
         player_name: form.playerName,
         free_fire_uid: form.freeFireUid,
+        team_name: form.teamName || null,
         phone: form.phone,
         email: form.email || null,
+        transaction_id: form.transactionId || null,
         payment_screenshot_url: screenshotPath || null,
         player_id_code: generatePlayerId(),
         anti_cheat_accepted: form.antiCheat,
