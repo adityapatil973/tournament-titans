@@ -149,6 +149,10 @@ export default function Register() {
               <Input value={form.freeFireUid} onChange={(e) => setForm({ ...form, freeFireUid: e.target.value })} required className="bg-muted border-border mt-1" />
             </div>
             <div>
+              <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Team Name (Optional)</label>
+              <Input value={form.teamName} onChange={(e) => setForm({ ...form, teamName: e.target.value })} className="bg-muted border-border mt-1" />
+            </div>
+            <div>
               <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Phone Number *</label>
               <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required className="bg-muted border-border mt-1" />
             </div>
@@ -156,16 +160,24 @@ export default function Register() {
               <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Email (Optional)</label>
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="bg-muted border-border mt-1" />
             </div>
-            <div>
-              <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Payment Screenshot</label>
-              <div className="mt-1">
-                <label className="flex items-center gap-3 cursor-pointer card-gaming p-4 hover:border-primary/50 transition-colors">
-                  <Upload className="w-5 h-5 text-primary" />
-                  <span className="text-sm text-muted-foreground">{screenshot ? screenshot.name : "Choose file..."}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-            </div>
+            {tournament.entry_fee > 0 && (
+              <>
+                <div>
+                  <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">UPI Transaction ID *</label>
+                  <Input value={form.transactionId} onChange={(e) => setForm({ ...form, transactionId: e.target.value })} required className="bg-muted border-border mt-1" placeholder="12-digit UPI reference number" />
+                </div>
+                <div>
+                  <label className="text-sm font-heading uppercase tracking-wider text-muted-foreground">Payment Screenshot *</label>
+                  <div className="mt-1">
+                    <label className="flex items-center gap-3 cursor-pointer card-gaming p-4 hover:border-primary/50 transition-colors">
+                      <Upload className="w-5 h-5 text-primary" />
+                      <span className="text-sm text-muted-foreground">{screenshot ? screenshot.name : "Upload payment proof (JPG/PNG, max 5MB)"}</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
             <div className="flex items-start gap-3">
               <Checkbox
                 checked={form.antiCheat}
