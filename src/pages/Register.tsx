@@ -17,8 +17,10 @@ export default function Register() {
   const [form, setForm] = useState({
     playerName: "",
     freeFireUid: "",
+    teamName: "",
     phone: "",
     email: "",
+    transactionId: "",
     antiCheat: false,
   });
   const [screenshot, setScreenshot] = useState<File | null>(null);
