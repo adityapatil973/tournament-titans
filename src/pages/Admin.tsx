@@ -18,6 +18,8 @@ export default function Admin() {
   const [players, setPlayers] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [scores, setScores] = useState<any[]>([]);
+  const [editingScore, setEditingScore] = useState<{ id: string; kills: number; rank_points: number } | null>(null);
   const [activeTab, setActiveTab] = useState("players");
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
@@ -49,21 +51,24 @@ export default function Admin() {
     if (!user || !isAdmin) { navigate("/"); return; }
     fetchAll();
     const channel = supabase
-      .channel("admin-players")
+      .channel("admin-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "scores" }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, isAdmin]);
 
   const fetchAll = async () => {
-    const [{ data: p }, { data: m }, { data: t }] = await Promise.all([
+    const [{ data: p }, { data: m }, { data: t }, { data: s }] = await Promise.all([
       supabase.from("players").select("*").order("created_at", { ascending: false }),
       supabase.from("matches").select("*").order("match_number"),
       supabase.from("tournaments").select("*").order("created_at", { ascending: false }),
+      supabase.from("scores").select("*, players(player_name, player_id_code), matches(match_number)").order("created_at", { ascending: false }),
     ]);
     setPlayers(p || []);
     setMatches(m || []);
     setTournaments(t || []);
+    setScores(s || []);
     if (t?.[0]) {
       setMatchForm((f) => ({ ...f, tournament_id: t[0].id }));
       setAnnForm((f) => ({ ...f, tournament_id: t[0].id }));
@@ -204,13 +209,31 @@ export default function Admin() {
 
   const addScore = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!scoreForm.match_id || !scoreForm.player_id) { toast.error("Select match and player"); return; }
     const total = scoreForm.kills + scoreForm.rank_points;
     const { error } = await supabase.from("scores").insert({
       ...scoreForm,
       total_points: total,
     });
     if (error) toast.error(error.message);
-    else { toast.success("Score added!"); setScoreForm({ match_id: "", player_id: "", kills: 0, rank_points: 0 }); }
+    else { toast.success("Score added!"); setScoreForm({ match_id: "", player_id: "", kills: 0, rank_points: 0 }); fetchAll(); }
+  };
+
+  const saveScoreEdit = async () => {
+    if (!editingScore) return;
+    const total = editingScore.kills + editingScore.rank_points;
+    const { error } = await supabase.from("scores").update({
+      kills: editingScore.kills, rank_points: editingScore.rank_points, total_points: total,
+    }).eq("id", editingScore.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Score updated"); setEditingScore(null); fetchAll(); }
+  };
+
+  const deleteScore = async (id: string) => {
+    if (!confirm("Delete this score entry?")) return;
+    const { error } = await supabase.from("scores").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Score deleted"); fetchAll(); }
   };
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -700,9 +723,59 @@ export default function Admin() {
               </div>
               <Button type="submit" className="btn-neon rounded-md text-primary-foreground font-heading uppercase tracking-wider">Add Score</Button>
             </form>
+
+            <h3 className="font-heading text-lg font-semibold uppercase mb-3 mt-8">All Scores ({scores.length})</h3>
+            <div className="card-gaming overflow-hidden">
+              <div className="hidden md:grid grid-cols-12 gap-2 px-4 py-2 text-xs font-heading uppercase text-muted-foreground border-b border-border bg-muted/20">
+                <div className="col-span-4">Player</div>
+                <div className="col-span-2">Match</div>
+                <div className="col-span-2 text-center">Kills</div>
+                <div className="col-span-2 text-center">Rank Pts</div>
+                <div className="col-span-1 text-center">Total</div>
+                <div className="col-span-1 text-right">Actions</div>
+              </div>
+              {scores.length === 0 && <p className="text-muted-foreground text-center py-6 text-sm">No scores yet</p>}
+              {scores.map((s) => {
+                const isEditing = editingScore?.id === s.id;
+                return (
+                  <div key={s.id} className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center px-4 py-3 border-b border-border/50 last:border-0 text-sm">
+                    <div className="col-span-2 md:col-span-4 font-heading">
+                      {s.players?.player_name || "Unknown"}
+                      <div className="text-xs text-muted-foreground">{s.players?.player_id_code}</div>
+                    </div>
+                    <div className="col-span-2 md:col-span-2 text-muted-foreground">Match #{s.matches?.match_number ?? "?"}</div>
+                    <div className="col-span-1 md:col-span-2 md:text-center">
+                      {isEditing ? (
+                        <Input type="number" value={editingScore.kills} onChange={(e) => setEditingScore({ ...editingScore, kills: parseInt(e.target.value) || 0 })} className="bg-muted border-border h-8" />
+                      ) : (<span className="font-display">{s.kills}</span>)}
+                    </div>
+                    <div className="col-span-1 md:col-span-2 md:text-center">
+                      {isEditing ? (
+                        <Input type="number" value={editingScore.rank_points} onChange={(e) => setEditingScore({ ...editingScore, rank_points: parseInt(e.target.value) || 0 })} className="bg-muted border-border h-8" />
+                      ) : (<span className="font-display text-neon-purple">{s.rank_points}</span>)}
+                    </div>
+                    <div className="col-span-1 md:col-span-1 md:text-center font-display font-bold text-primary">
+                      {isEditing ? editingScore.kills + editingScore.rank_points : s.total_points}
+                    </div>
+                    <div className="col-span-1 md:col-span-1 flex justify-end gap-1">
+                      {isEditing ? (
+                        <>
+                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={saveScoreEdit}><Save className="w-3 h-3" /></Button>
+                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setEditingScore(null)}><X className="w-3 h-3" /></Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setEditingScore({ id: s.id, kills: s.kills, rank_points: s.rank_points })}><Pencil className="w-3 h-3" /></Button>
+                          <Button size="icon" variant="outline" className="h-7 w-7 text-neon-red border-neon-red/30 hover:bg-neon-red/10" onClick={() => deleteScore(s.id)}><Trash2 className="w-3 h-3" /></Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </TabsContent>
 
-          {/* BROADCAST */}
           <TabsContent value="announce">
             <h2 className="font-heading text-xl font-semibold uppercase mb-4">Send Announcement</h2>
             <form onSubmit={sendAnnouncement} className="card-gaming p-6 space-y-4">
