@@ -339,51 +339,141 @@ export default function Admin() {
 
           {/* PLAYERS */}
           <TabsContent value="players">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-heading text-xl font-semibold uppercase">Registered Players ({players.length})</h2>
-              <Button size="sm" variant="outline" onClick={downloadResults} className="gap-2">
-                <Download className="w-4 h-4" /> Export CSV
-              </Button>
+            {(() => {
+              const total = players.length;
+              const approved = players.filter(p => p.payment_status === "approved").length;
+              const pending = players.filter(p => p.payment_status === "pending").length;
+              const revenue = players
+                .filter(p => p.payment_status === "approved")
+                .reduce((sum, p) => {
+                  const t = tournaments.find(t => t.id === p.tournament_id);
+                  return sum + (t?.entry_fee || 0);
+                }, 0);
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="card-gaming p-4"><div className="flex items-center gap-2 text-xs text-muted-foreground uppercase font-heading"><Users className="w-4 h-4" />Total</div><div className="text-2xl font-bold mt-1">{total}</div></div>
+                  <div className="card-gaming p-4"><div className="flex items-center gap-2 text-xs text-neon-green uppercase font-heading"><UserCheck className="w-4 h-4" />Approved</div><div className="text-2xl font-bold mt-1 text-neon-green">{approved}</div></div>
+                  <div className="card-gaming p-4"><div className="flex items-center gap-2 text-xs text-neon-yellow uppercase font-heading"><Clock className="w-4 h-4" />Pending</div><div className="text-2xl font-bold mt-1 text-neon-yellow">{pending}</div></div>
+                  <div className="card-gaming p-4"><div className="flex items-center gap-2 text-xs text-primary uppercase font-heading"><IndianRupee className="w-4 h-4" />Revenue</div><div className="text-2xl font-bold mt-1 text-primary">₹{revenue}</div></div>
+                </div>
+              );
+            })()}
+
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+              <h2 className="font-heading text-xl font-semibold uppercase">Registered Players</h2>
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} placeholder="Search name, UID, phone..." className="pl-9 bg-muted border-border w-64" />
+                </div>
+                <Select value={playerFilter} onValueChange={setPlayerFilter}>
+                  <SelectTrigger className="w-36 bg-muted border-border"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={downloadResults} className="gap-2">
+                  <Download className="w-4 h-4" /> Export CSV
+                </Button>
+              </div>
             </div>
+
             <div className="space-y-3">
-              {players.map((p) => (
+              {players
+                .filter(p => playerFilter === "all" || p.payment_status === playerFilter)
+                .filter(p => {
+                  const q = playerSearch.toLowerCase().trim();
+                  if (!q) return true;
+                  return [p.player_name, p.free_fire_uid, p.phone, p.player_id_code, p.team_name, p.transaction_id, p.email]
+                    .some(v => v && String(v).toLowerCase().includes(q));
+                })
+                .map((p) => (
                 <div key={p.id} className="card-gaming p-4 flex flex-wrap items-center justify-between gap-4">
+                  {p.payment_screenshot_url ? (
+                    <button
+                      type="button"
+                      onClick={() => openScreenshot(p.payment_screenshot_url)}
+                      className="w-16 h-16 rounded border border-primary/30 bg-muted flex items-center justify-center hover:border-primary transition-colors shrink-0"
+                      title="View payment screenshot"
+                    >
+                      <ImageIcon className="w-6 h-6 text-primary" />
+                    </button>
+                  ) : (
+                    <div className="w-16 h-16 rounded border border-dashed border-border bg-muted/40 flex items-center justify-center shrink-0" title="No screenshot uploaded">
+                      <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-[200px]">
-                    <div className="font-heading font-semibold">{p.player_name}</div>
-                    <div className="text-xs text-muted-foreground space-x-3">
+                    <div className="font-heading font-semibold">
+                      {p.player_name}
+                      {p.team_name && <span className="ml-2 text-xs text-muted-foreground">[{p.team_name}]</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
                       <span>UID: {p.free_fire_uid}</span>
                       <span>Phone: {p.phone}</span>
                       <span>ID: {p.player_id_code}</span>
+                      {p.transaction_id && <span>Txn: {p.transaction_id}</span>}
                     </div>
+                    {p.payment_status === "rejected" && p.rejection_reason && (
+                      <div className="text-xs text-neon-red mt-1">Reason: {p.rejection_reason}</div>
+                    )}
                   </div>
                   <Badge className={`${statusColor[p.payment_status]} border`}>{p.payment_status}</Badge>
-                  {p.payment_screenshot_url && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const { data, error } = await supabase.storage
-                          .from("payment-screenshots")
-                          .createSignedUrl(p.payment_screenshot_url, 3600);
-                        if (error || !data) { toast.error("Could not load screenshot"); return; }
-                        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-                      }}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      View Screenshot
-                    </button>
-                  )}
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => updatePaymentStatus(p.id, "approved")} className="gap-1 text-neon-green border-neon-green/30 hover:bg-neon-green/10">
-                      <Check className="w-3 h-3" /> Approve
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => updatePaymentStatus(p.id, "rejected")} className="gap-1 text-neon-red border-neon-red/30 hover:bg-neon-red/10">
-                      <X className="w-3 h-3" /> Reject
+                  <div className="flex gap-2 flex-wrap">
+                    {p.payment_status !== "approved" && (
+                      <Button size="sm" variant="outline" onClick={() => updatePaymentStatus(p.id, "approved")} className="gap-1 text-neon-green border-neon-green/30 hover:bg-neon-green/10">
+                        <Check className="w-3 h-3" /> Approve
+                      </Button>
+                    )}
+                    {p.payment_status !== "rejected" && (
+                      <Button size="sm" variant="outline" onClick={() => { setRejectingPlayer(p); setRejectReason(""); }} className="gap-1 text-neon-red border-neon-red/30 hover:bg-neon-red/10">
+                        <X className="w-3 h-3" /> Reject
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => deletePlayer(p.id, p.player_name)} className="gap-1 text-muted-foreground hover:text-neon-red">
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
               ))}
               {players.length === 0 && <p className="text-muted-foreground text-center py-8">No players registered yet</p>}
             </div>
+
+            {/* Screenshot preview dialog */}
+            <Dialog open={!!previewUrl || previewLoading} onOpenChange={(o) => { if (!o) { setPreviewUrl(null); } }}>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader><DialogTitle>Payment Screenshot</DialogTitle></DialogHeader>
+                {previewLoading && <p className="text-center text-muted-foreground py-12">Loading...</p>}
+                {previewUrl && (
+                  <div className="space-y-3">
+                    <img src={previewUrl} alt="Payment screenshot" className="w-full max-h-[70vh] object-contain rounded border border-border" />
+                    <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Open full size in new tab ↗</a>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
+            {/* Rejection reason dialog */}
+            <Dialog open={!!rejectingPlayer} onOpenChange={(o) => { if (!o) setRejectingPlayer(null); }}>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Reject {rejectingPlayer?.player_name}</DialogTitle></DialogHeader>
+                <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Reason for rejection (e.g. invalid payment screenshot, wrong amount)..." className="bg-muted border-border min-h-24" />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setRejectingPlayer(null)}>Cancel</Button>
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!rejectReason.trim()) { toast.error("Please provide a reason"); return; }
+                      await updatePaymentStatus(rejectingPlayer.id, "rejected", rejectReason.trim());
+                      setRejectingPlayer(null);
+                    }}
+                  >Confirm Reject</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* TOURNAMENT */}
