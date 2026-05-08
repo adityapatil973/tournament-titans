@@ -409,7 +409,7 @@ export default function Admin() {
                 <label className="text-xs font-heading uppercase text-muted-foreground">UPI QR Code Image</label>
                 <div className="mt-1">
                   <label className="flex items-center gap-3 cursor-pointer card-gaming p-4 hover:border-primary/50 transition-colors">
-                    <Image className="w-5 h-5 text-primary" />
+                    <ImageIcon className="w-5 h-5 text-primary" />
                     <span className="text-sm text-muted-foreground">{qrCodeFile ? qrCodeFile.name : "Upload QR Code image..."}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => setQrCodeFile(e.target.files?.[0] || null)} />
                   </label>
