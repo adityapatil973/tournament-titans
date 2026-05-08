@@ -70,10 +70,31 @@ export default function Admin() {
     }
   };
 
-  const updatePaymentStatus = async (playerId: string, status: string) => {
-    const { error } = await supabase.from("players").update({ payment_status: status as any }).eq("id", playerId);
+  const updatePaymentStatus = async (playerId: string, status: string, reason?: string) => {
+    const payload: any = { payment_status: status as any };
+    if (status === "rejected") payload.rejection_reason = reason || null;
+    if (status === "approved") payload.rejection_reason = null;
+    const { error } = await supabase.from("players").update(payload).eq("id", playerId);
     if (error) toast.error(error.message);
     else { toast.success(`Payment ${status}`); fetchAll(); }
+  };
+
+  const deletePlayer = async (id: string, name: string) => {
+    if (!confirm(`Delete player "${name}"? This cannot be undone.`)) return;
+    const { error } = await supabase.from("players").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Player deleted"); fetchAll(); }
+  };
+
+  const openScreenshot = async (path: string) => {
+    setPreviewLoading(true);
+    setPreviewUrl(null);
+    const { data, error } = await supabase.storage
+      .from("payment-screenshots")
+      .createSignedUrl(path, 3600);
+    setPreviewLoading(false);
+    if (error || !data) { toast.error("Could not load screenshot"); return; }
+    setPreviewUrl(data.signedUrl);
   };
 
   const saveTournament = async (e: React.FormEvent) => {
